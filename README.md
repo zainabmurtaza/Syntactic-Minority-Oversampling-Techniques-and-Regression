@@ -4,7 +4,7 @@
 
 2) Normalized all numerical features (except the “Apps” variable) using z-score standardization using “scale” function.
 
-3) Used caret package to run 10 fold cross validation using linear regression method on all features.  Printed the resulting model to see the cross validation RMSE. In addition, took a summary of the model and interpreted the coefficients.
+3) Used caret package to run 10 fold cross validation using linear regression method on all features.  Printed resulting model to see cross validation RMSE. In addition, took a summary of the model and interpreted the coefficients.
 
 4) Used caret and leap packages to run a 10 fold cross validation using step wise linear regression method with backward selection (i.e., method=”leapBackward). The train method by default uses maximum of 4 predictors and reports the best models with 1..4 predictors. Changed this parameter to consider 1..16 predictors. Inside the train function, added the following parameter tuneGrid = data.frame(nvmax = 1:16). Took the summary of the final model to see which variables were selected in the model with the lowest RMSE.
 
