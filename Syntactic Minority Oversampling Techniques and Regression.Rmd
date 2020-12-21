@@ -1,0 +1,236 @@
+---
+title: "Syntactic Minority Oversampling Techniques and Regression"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+# Problem 1: Predicting number of college applications
+
+
+**1. Reading in the dataset and Data Exploration**
+
+```{r}
+dataOne <- read.csv("College.csv")
+```
+
+
+**Overall structure and summary statistics of variables.**
+
+```{r}
+str(dataOne)
+```
+```{r}
+summary(dataOne)
+```
+
+There are 777 observations with 17 numeric variables and 2 categorical variables in the data. No NA values.
+
+
+**2. Remove the first column**
+
+
+```{r}
+dataOne <- dataOne[, 2:19]
+```
+
+
+**3. Exploring associations between features and target variables.**
+
+**Numeric Variables**
+```{r}
+pairs(dataOne[2:18])
+cor(dataOne[2:18])
+```
+
+```{r}
+library("gplots")
+
+heatmap.2(cor(dataOne[2:18]), density.info = "none", trace = "none")
+```
+
+**Categorical Features**
+
+
+```{r}
+
+plot(dataOne$Apps~dataOne$Private, xlab = 'Private', ylab = 'Apps')
+ 
+t.test(dataOne$Apps~dataOne$Private, alternative = 'two.sided')
+
+
+```
+
+Variables like [Accept], [Enroll] and [F.Undergrad] show high correlation with the target variable.
+
+**4. Histogram of target variable**
+
+```{r}
+hist(dataOne$Apps)
+```
+
+Thw histogram shows that most of the values lie in the region 0-10000, and the data might have a number of outliers as well.
+
+**5. Adding a feature 'Elite'**
+
+```{r}
+dataOne$Elite <- factor(ifelse(dataOne$Top10perc >=50, "Yes", "No"))
+dataOne$Top10perc <- NULL
+```
+
+**6. Association between Elite and target variable**
+```{r}
+plot(dataOne$Apps~dataOne$Elite)
+t.test(dataOne$Apps~dataOne$Elite, alternative = 'two.sided')
+```
+
+Since p-value < 0.01, we can conclude that statistically there is a difference between the means of the Apps for each category of the Elite variable, so the association exists between them, so we can use this variable.
+
+**7. Z-Score standardization**
+```{r}
+dataOne[, 3:17] <- scale(dataOne[, 3:17])
+```
+
+**8. Set seed **
+```{r}
+set.seed(123)
+```
+
+
+**9. Model Fit **
+```{r}
+library(caret)
+train.control <- trainControl(method = 'cv', number = 10)
+model <- train(Apps ~ ., data = dataOne, method = 'lm', 
+               trControl = train.control)
+```
+
+```{r}
+print(model)
+```
+
+```{r}
+summary(model)
+```
+Based on the p-values, variables accept, enroll, top25perc, outstate, expend and eliteyes show highest significance and have greatest impact on the model.
+
+**10. Reset seed**
+```{r}
+set.seed(123)
+```
+
+**11. stepwise Regression**
+```{r}
+library(leaps)
+
+train.control <- trainControl(method = 'cv', number = 10)
+
+model <- train(Apps ~ ., data = dataOne, method = 'leapBackward', 
+               trControl = train.control, tuneGrid = data.frame(nvmax = 1:16))
+```
+
+```{r}
+print(model)
+```
+
+```{r}
+summary(model)
+```
+
+EliteYes, Accept and Expend were the variables selected in best three variables model with lowest RMSE.
+
+**12. Regression Tree**
+```{r}
+library(rpart)
+
+train = dataOne[1:621,]
+test = dataOne[622:777,]
+
+
+reg_tree <- rpart(Apps ~ ., data = train)
+predictions <- predict(reg_tree, test)  
+RMSE <- (mean((test$Apps-predictions)^2))^.5  
+print(RMSE)
+```
+
+# Problem 2: Predicting loan default
+
+
+**1. Reading Data, setting seed and train and test split**
+```{r}
+dataTwo <- read.csv("credit.csv")
+```
+
+```{r}
+set.seed(123)
+```
+
+```{r}
+
+train_sample <- sample(1000, 900) 
+
+credit_train <- dataTwo[train_sample, ]
+
+credit_test <- dataTwo[-train_sample, ]
+
+```
+
+**2. Logistic Regression**
+```{r}
+logistic_model <- glm(default ~ ., data = credit_train, family = "binomial")
+```
+
+```{r}
+prob_predictions <- predict(logistic_model, credit_test, type = "response")
+predictions <- factor(ifelse(prob_predictions > 0.5, "yes", "no"))
+```
+
+
+**3. Prediction validation**
+
+```{r}
+actual_label <- credit_test$default
+
+t <- table(predictions, actual_label)
+error <- (t[1,2]+t[2,1])/(t[1,1]+t[1,2]+t[2,1]+t[2,2])
+FPR <- t[1,2]/(t[1,2]+t[1,1])
+FNR <- t[2,1]/(t[2,1]+t[2,2])
+
+cat("\nError: ", error)
+cat("\nFPR: ", FPR)
+cat("\nFNR: ", FNR)
+
+```
+ 
+The error rate of the classification trees was 27% before boosting, so the logistic regression performs slightly better than it.
+
+**4. Oversampling with SMOTE**
+```{r}
+library(DMwR)
+
+set.seed(123)
+
+credit_train_os <- SMOTE(default ~ ., data = credit_train, perc.over = 100)
+
+logistic_model <- glm(default ~ ., data = credit_train_os, family = "binomial")
+
+```
+
+```{r}
+prob_predictions <- predict(logistic_model, credit_test, type = "response")
+predictions <- factor(ifelse(prob_predictions > 0.5, "yes", "no"))
+
+actual_label <- credit_test$default
+
+t <- table(predictions, actual_label)
+error <- (t[1,2]+t[2,1])/(t[1,1]+t[1,2]+t[2,1]+t[2,2])
+FPR <- t[1,2]/(t[1,2]+t[1,1])
+FNR <- t[2,1]/(t[2,1]+t[2,2])
+
+cat("\nError: ", error)
+cat("\nFPR: ", FPR)
+cat("\nFNR: ", FNR)
+```
+
+Although the error rate increased after oversampling, the FPR decreased which is good, and the FNR increased instead.
